@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Площадь по методу Гаусса</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 { color: #1a73e8; font-size: 24px; text-align: center;}
+        
+        .card {
+            background: #fff;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+
+        /* Кнопки и инпуты */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-primary { background-color: #1a73e8; color: white; }
+        .btn-secondary { background-color: #e8f0fe; color: #1a73e8; }
+        .btn-danger { background-color: #fce8e6; color: #c5221f; }
+        .btn-active { ring: 3px solid #8ab4f8; font-weight: bold; transform: scale(0.98); }
+
+        input[type="number"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            width: 80px;
+            font-size: 16px;
+        }
+
+        /* Канвас */
+        .canvas-wrapper {
+            position: relative;
+            overflow: auto;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            background: #fafafa;
+            text-align: center;
+        }
+        canvas {
+            max-width: 100%;
+            display: block;
+            margin: 0 auto;
+            cursor: crosshair;
+        }
+
+        /* Результаты */
+        .result-box {
+            background: #e6fffa;
+            border: 1px solid #b2f5ea;
+            color: #2c7a7b;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: none;
+        }
+        .math-step {
+            font-family: monospace;
+            background: rgba(255,255,255,0.7);
+            padding: 4px;
+            margin: 4px 0;
+            display: block;
+            border-radius: 4px;
+        }
+        
+        /* Инструкция */
+        .step-badge {
+            background: #1a73e8; color: white;
+            border-radius: 50%; width: 24px; height: 24px;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 14px; margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>📐 Калькулятор Гаусса</h1>
+
+    <div class="card">
+        <label style="display:block; margin-bottom:10px; font-weight:bold;">1. Загрузи фото</label>
+        <input type="file" id="imageUpload" accept="image/*" style="width:100%">
+    </div>
+
+    <div class="card" id="toolsPanel" style="display:none;">
+        <div class="btn-group">
+            <button id="modeCalibrate" class="btn-secondary">📏 2. Калибровка</button>
+            <button id="modeDraw" class="btn-secondary">✏️ 3. Обводка</button>
+        </div>
+        
+        <div id="calibrationControls" style="display:none; margin-top:10px; background:#f8f9fa; padding:10px; border-radius:8px;">
+            <p style="margin:0 0 10px 0; font-size:14px;">Отметьте 2 точки (начало и конец известного предмета).</p>
+            <label>Длина в реальности (см): </label>
+            <input type="number" id="realLengthInput" value="10">
+            <button onclick="applyCalibration()" class="btn-primary" style="margin-top:5px; width:auto;">Применить масштаб</button>
+        </div>
+
+        <div class="btn-group" style="margin-top:15px;">
+            <button onclick="calculateArea()" class="btn-primary">Рассчитать площадь</button>
+            <button onclick="clearCanvas()" class="btn-danger">Очистить</button>
+        </div>
+    </div>
+
+    <div class="canvas-wrapper">
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <div id="result" class="result-box"></div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let img = new Image();
+        
+        // Состояние приложения
+        let mode = 'draw'; // 'calibrate' или 'draw'
+        let points = []; // Точки многоугольника
+        let calibrationPoints = []; // 2 точки для масштаба
+        let pixelsPerCm = 0; // Масштаб (пикселей в 1 см)
+
+        // Элементы UI
+        const toolsPanel = document.getElementById('toolsPanel');
+        const calibPanel = document.getElementById('calibrationControls');
+        const btnCalib = document.getElementById('modeCalibrate');
+        const btnDraw = document.getElementById('modeDraw');
+
+        // 1. Загрузка фото
+        document.getElementById('imageUpload').addEventListener('change', (e) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                img.onload = () => {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    toolsPanel.style.display = 'block';
+                    resetAll();
+                    setMode('calibrate'); // Сразу предлагаем калибровку
+                }
+                img.src = event.target.result;
+            }
+            if(e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
+        });
+
+        // 2. Управление режимами
+        btnCalib.addEventListener('click', () => setMode('calibrate'));
+        btnDraw.addEventListener('click', () => setMode('draw'));
+
+        function setMode(newMode) {
+            mode = newMode;
+            if (mode === 'calibrate') {
+                btnCalib.className = 'btn-primary';
+                btnDraw.className = 'btn-secondary';
+                calibPanel.style.display = 'block';
+            } else {
+                btnCalib.className = 'btn-secondary';
+                btnDraw.className = 'btn-primary';
+                calibPanel.style.display = 'none';
+            }
+            draw();
+        }
+
+        // 3. Обработка кликов
+        canvas.addEventListener('click', (e) => {
+            if (!img.src) return;
+            
+            // Получаем координаты с учетом масштаба отображения на экране
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+
+            if (mode === 'calibrate') {
+                if (calibrationPoints.length >= 2) calibrationPoints = []; // Сброс, если уже есть линия
+                calibrationPoints.push({x, y});
+            } else {
+                points.push({x, y});
+            }
+            draw();
+        });
+
+        // 4. Применение масштаба
+        window.applyCalibration = function() {
+            if (calibrationPoints.length < 2) {
+                alert("Сначала поставьте 2 точки на фото!");
+                return;
+            }
+            const p1 = calibrationPoints[0];
+            const p2 = calibrationPoints[1];
+            // Расстояние в пикселях по теореме Пифагора
+            const distPx = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+            const realCm = parseFloat(document.getElementById('realLengthInput').value);
+            
+            if (!realCm || realCm <= 0) {
+                alert("Введите корректную длину в см");
+                return;
+            }
+
+            pixelsPerCm = distPx / realCm;
+            alert(`Масштаб сохранен! ${pixelsPerCm.toFixed(2)} пикс = 1 см.\nТеперь переключитесь в режим "Обводка" и отметьте фигуру.`);
+            setMode('draw');
+        };
+
+        // 5. Расчет площади (Метод Гаусса)
+        window.calculateArea = function() {
+            if (points.length < 3) {
+                alert("Для фигуры нужно минимум 3 точки!");
+                return;
+            }
+
+            // Формула шнурков (Shoelace formula)
+            let sum1 = 0;
+            let sum2 = 0;
+            const n = points.length;
+
+            for (let i = 0; i < n; i++) {
+                let p1 = points[i];
+                let p2 = points[(i + 1) % n]; // Следующая точка (последняя соединяется с первой)
+                
+                sum1 += p1.x * p2.y;
+                sum2 += p1.y * p2.x;
+            }
+
+            const areaPx = Math.abs(sum1 - sum2) / 2;
+            
+            // Вывод
+            const resDiv = document.getElementById('result');
+            resDiv.style.display = 'block';
+            let html = `<h3>📊 Результат</h3>`;
+            html += `<span class="math-step">Площадь в пикселях: ${Math.round(areaPx)} px²</span>`;
+
+            if (pixelsPerCm > 0) {
+                // Перевод в см²: делим пиксельную площадь на квадрат масштаба
+                const areaCm = areaPx / (pixelsPerCm * pixelsPerCm);
+                html += `<span class="math-step" style="background:#c6f6d5; font-weight:bold; color:#22543d">Площадь реальная: ${areaCm.toFixed(2)} см²</span>`;
+            } else {
+                html += `<p style="color:#c53030">⚠️ Масштаб не задан! Выполните калибровку (шаг 2), чтобы получить ответ в сантиметрах.</p>`;
+            }
+            
+            resDiv.innerHTML = html;
+            resDiv.scrollIntoView({ behavior: 'smooth' });
+        };
+
+        window.clearCanvas = function() {
+            points = [];
+            calibrationPoints = [];
+            pixelsPerCm = 0;
+            document.getElementById('result').style.display = 'none';
+            draw();
+        };
+
+        function resetAll() {
+            points = [];
+            calibrationPoints = [];
+            pixelsPerCm = 0;
+            document.getElementById('result').style.display = 'none';
+        }
+
+        // Отрисовка
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+
+            // Рисуем линию калибровки (синяя)
+            if (calibrationPoints.length > 0) {
+                ctx.strokeStyle = '#3182ce';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(calibrationPoints[0].x, calibrationPoints[0].y);
+                calibrationPoints.forEach(p => ctx.lineTo(p.x, p.y));
+                ctx.stroke();
+
+                calibrationPoints.forEach(p => {
+                    ctx.fillStyle = '#3182ce';
+                    ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI*2); ctx.fill();
+                });
+            }
+
+            // Рисуем многоугольник (красный)
+            if (points.length > 0) {
+                ctx.strokeStyle = '#e53e3e';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(points[0].x, points[0].y);
+                points.forEach(p => ctx.lineTo(p.x, p.y));
+                if (points.length > 2) ctx.lineTo(points[0].x, points[0].y); // Замыкаем
+                ctx.stroke();
+                
+                // Заливка
+                ctx.fillStyle = 'rgba(229, 62, 62, 0.2)';
+                ctx.fill();
+
+                points.forEach((p, i) => {
+                    ctx.fillStyle = '#e53e3e';
+                    ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI*2); ctx.fill();
+                    // Номера точек
+                    ctx.fillStyle = 'white';
+                    ctx.font = '14px monospace';
+                    ctx.strokeText(i+1, p.x+8, p.y-8);
+                    ctx.fillText(i+1, p.x+8, p.y-8);
+                });
+            }
+        }
+    </script>
+</body>
+</html>
