@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Площадь по методу Гаусса</title>
+    <title>Гаусс әдісі бойынша аудан табу</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -99,7 +99,7 @@
 </head>
 <body>
 
-    <h1>📐 Калькулятор Гаусса</h1>
+    <h1>📐 Гаусс калькуляторы</h1>
 
     <div class="card">
         <label style="display:block; margin-bottom:10px; font-weight:bold;">1. Загрузи фото</label>
@@ -108,20 +108,20 @@
 
     <div class="card" id="toolsPanel" style="display:none;">
         <div class="btn-group">
-            <button id="modeCalibrate" class="btn-secondary">📏 2. Калибровка</button>
-            <button id="modeDraw" class="btn-secondary">✏️ 3. Обводка</button>
+            <button id="modeCalibrate" class="btn-secondary">📏 2. Калибрлеу</button>
+            <button id="modeDraw" class="btn-secondary">✏️ 3. Контрлау</button>
         </div>
         
         <div id="calibrationControls" style="display:none; margin-top:10px; background:#f8f9fa; padding:10px; border-radius:8px;">
-            <p style="margin:0 0 10px 0; font-size:14px;">Отметьте 2 точки (начало и конец известного предмета).</p>
-            <label>Длина в реальности (см): </label>
+            <p style="margin:0 0 10px 0; font-size:14px;">2 нүктені белгілеңіз (белгілі нысанның басы мен соңы).</p>
+            <label>Өмірдегі ұзындығы (см): </label>
             <input type="number" id="realLengthInput" value="10">
-            <button onclick="applyCalibration()" class="btn-primary" style="margin-top:5px; width:auto;">Применить масштаб</button>
+            <button onclick="applyCalibration()" class="btn-primary" style="margin-top:5px; width:auto;">Масштабты қолдану</button>
         </div>
 
         <div class="btn-group" style="margin-top:15px;">
-            <button onclick="calculateArea()" class="btn-primary">Рассчитать площадь</button>
-            <button onclick="clearCanvas()" class="btn-danger">Очистить</button>
+            <button onclick="calculateArea()" class="btn-primary">Ауданды есептеу</button>
+            <button onclick="clearCanvas()" class="btn-danger">Жою</button>
         </div>
     </div>
 
@@ -205,7 +205,7 @@
         // 4. Применение масштаба
         window.applyCalibration = function() {
             if (calibrationPoints.length < 2) {
-                alert("Сначала поставьте 2 точки на фото!");
+                alert("Алдымен фотоға 2 нүкте қойыңыз!");
                 return;
             }
             const p1 = calibrationPoints[0];
@@ -215,19 +215,19 @@
             const realCm = parseFloat(document.getElementById('realLengthInput').value);
             
             if (!realCm || realCm <= 0) {
-                alert("Введите корректную длину в см");
+                alert("Дұрыс ұзындықты см-мен енгізіңіз");
                 return;
             }
 
             pixelsPerCm = distPx / realCm;
-            alert(`Масштаб сохранен! ${pixelsPerCm.toFixed(2)} пикс = 1 см.\nТеперь переключитесь в режим "Обводка" и отметьте фигуру.`);
+            alert(`Масштаб cақталды! ${pixelsPerCm.toFixed(2)} пикс = 1 см.\nЕнді Контрлау режиміне ауысып, пішінді таңдаңыз.`);
             setMode('draw');
         };
 
         // 5. Расчет площади (Метод Гаусса)
         window.calculateArea = function() {
             if (points.length < 3) {
-                alert("Для фигуры нужно минимум 3 точки!");
+                alert("Фигураға кемінде 3 нүкте керек!");
                 return;
             }
 
@@ -249,15 +249,15 @@
             // Вывод
             const resDiv = document.getElementById('result');
             resDiv.style.display = 'block';
-            let html = `<h3>📊 Результат</h3>`;
-            html += `<span class="math-step">Площадь в пикселях: ${Math.round(areaPx)} px²</span>`;
+            let html = `<h3>📊 Нәтиже</h3>`;
+            html += `<span class="math-step">пиксельдегі аудан: ${Math.round(areaPx)} px²</span>`;
 
             if (pixelsPerCm > 0) {
                 // Перевод в см²: делим пиксельную площадь на квадрат масштаба
                 const areaCm = areaPx / (pixelsPerCm * pixelsPerCm);
-                html += `<span class="math-step" style="background:#c6f6d5; font-weight:bold; color:#22543d">Площадь реальная: ${areaCm.toFixed(2)} см²</span>`;
+                html += `<span class="math-step" style="background:#c6f6d5; font-weight:bold; color:#22543d">Өмірдегі ауданы ${areaCm.toFixed(2)} см²</span>`;
             } else {
-                html += `<p style="color:#c53030">⚠️ Масштаб не задан! Выполните калибровку (шаг 2), чтобы получить ответ в сантиметрах.</p>`;
+                html += `<p style="color:#c53030">⚠️ Шкаласы орнатылмаған! Жауапты сантиметрмен алу үшін калибрлендіріңіз (2-қадам).</p>`;
             }
             
             resDiv.innerHTML = html;
